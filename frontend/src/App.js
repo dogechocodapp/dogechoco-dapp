@@ -1,9 +1,12 @@
+// --- CÓDIGO FINAL, COMPLETO Y DEFINITIVO de App.js ---
+
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './App.css';
 import DOGECHOCOLogo from './assets/DOGECHOCO-logo.png';
 
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
+const BACKEND_URL = 'https://dogechoco-backend.onrender.com';
 
 function App() {
     const [account, setAccount] = useState(null);
@@ -15,7 +18,8 @@ function App() {
     const [view, setView] = useState('main');
 
     useEffect(() => {
-        if (account && account.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
+        // Esta es la versión más segura para evitar errores al cargar
+        if (typeof account === 'string' && account.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             setIsAdmin(true);
         } else {
             setIsAdmin(false);
@@ -31,6 +35,7 @@ function App() {
                 setAccount(address);
                 setNotification('✅ Wallet conectada correctamente.');
             } catch (error) {
+                console.error("Error conectando la wallet:", error);
                 setNotification('❌ Error al conectar la wallet. Inténtalo de nuevo.');
             }
         } else {
@@ -50,7 +55,7 @@ function App() {
             const signer = await provider.getSigner();
             const signature = await signer.signMessage(message);
             setNotification('Enviando y verificando en el servidor...');
-            const response = await fetch('http://localhost:3001/api/message', {
+            const response = await fetch(`${BACKEND_URL}/api/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -68,7 +73,7 @@ function App() {
         } catch (error) {
             console.error("Error al firmar o enviar el mensaje:", error);
             let userFriendlyError = error.message;
-            if (error.message.includes('ACTION_REJECTED')) {
+            if (String(error.message).includes('ACTION_REJECTED')) {
                 userFriendlyError = 'Has rechazado la solicitud de firma en tu wallet.';
             }
             setNotification(`❌ Error: ${userFriendlyError}`);
@@ -86,7 +91,7 @@ function App() {
             const adminMessage = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
             const signature = await signer.signMessage(adminMessage);
 
-            const response = await fetch('http://localhost:3001/admin/get-messages', {
+            const response = await fetch(`${BACKEND_URL}/admin/get-messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -121,7 +126,7 @@ function App() {
             const adminMessage = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
             const signature = await signer.signMessage(adminMessage);
 
-            const response = await fetch('http://localhost:3001/admin/download-messages', {
+            const response = await fetch(`${BACKEND_URL}/admin/download-messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ address: account, signature: signature })

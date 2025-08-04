@@ -1,27 +1,25 @@
-/* --- CÓDIGO CSS COMPLETO Y DEFINITIVO --- */
+/* --- CÓDIGO CSS COMPLETO Y DEFINITIVO (FORMATEADO) --- */
 
-/* --- ESTILO PRINCIPAL DE LA APP (TEMA CLARO) --- */
 .App {
     text-align: center;
-    background-color: #ffffff; /* FONDO BLANCO */
+    background-color: #ffffff;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-size: calc(10px + 2vmin);
-    color: #2d3748; /* Texto principal oscuro para legibilidad */
+    color: #2d3748;
     padding: 20px;
 }
 
 .App-logo {
-    height: 72vmin; /* AUMENTADO DE 18 a 72 */
-    max-height: 480px; /* AUMENTADO DE 120 a 480 */
+    height: 72vmin;
+    max-height: 480px;
     pointer-events: none;
     margin-bottom: 20px;
 }
 
-/* --- TÍTULO CON DEGRADADO SOLANA --- */
 .solana-gradient {
     font-size: 2.5em;
     font-weight: bold;
@@ -33,33 +31,31 @@
     margin-bottom: 30px;
 }
 
-/* --- BOTONES ROJOS CON TEXTO BLANCO --- */
 .connect-button,
 .send-button {
-    background-color: #dc2626; /* Color ROJO */
-    color: white;             /* Color BLANCO del texto */
+    background-color: #dc2626;
+    color: white;
     border: none;
     padding: 15px 30px;
     border-radius: 12px;
     font-size: 1em;
     cursor: pointer;
     font-weight: bold;
-    transition: background-color 0.3s, transform 0.2s;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: background-color .3s, transform .2s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, .1);
 }
 
 .connect-button:hover,
 .send-button:hover {
-    background-color: #b91c1c; /* Rojo más oscuro al pasar el ratón */
+    background-color: #b91c1c;
     transform: scale(1.05);
 }
 
 .send-button:disabled {
-    background-color: #a0aec0; /* Un gris para el botón deshabilitado */
+    background-color: #a0aec0;
     cursor: not-allowed;
 }
 
-/* --- ESTILOS PARA LA CAJA DE MENSAJE (TEMA CLARO) --- */
 .message-container {
     display: flex;
     flex-direction: column;
@@ -75,7 +71,7 @@
 }
 
 .wallet-address {
-    font-size: 0.7em;
+    font-size: .7em;
     background-color: #edf2f7;
     color: #4a5568;
     padding: 8px 12px;
@@ -89,7 +85,7 @@ textarea {
     border: 1px solid #cbd5e0;
     color: #2d3748;
     padding: 15px;
-    font-size: 0.8em;
+    font-size: .8em;
     min-height: 100px;
     box-sizing: border-box;
 }
@@ -100,14 +96,14 @@ textarea::placeholder {
 
 .notification {
     margin-top: 20px;
-    font-size: 0.9em;
+    font-size: .9em;
     font-weight: bold;
 }
 
 /* --- ESTILOS PARA EL PANEL DE ADMIN --- */
 
 .admin-button {
-    background-color: #805ad5; /* Morado para el botón de admin */
+    background-color: #805ad5;
     color: white;
     border: none;
     padding: 12px 25px;
@@ -116,7 +112,7 @@ textarea::placeholder {
     cursor: pointer;
     font-weight: bold;
     margin-bottom: 20px;
-    transition: background-color 0.3s;
+    transition: background-color .3s;
 }
 
 .admin-button:hover {
@@ -160,7 +156,6 @@ textarea::placeholder {
 .message-item strong {
     color: #4a5568;
 }
-/* --- ESTILOS PARA EL BOTÓN DE DESCARGA Y HEADER DE ADMIN --- */
 
 .admin-header {
     display: flex;
@@ -171,15 +166,15 @@ textarea::placeholder {
 }
 
 .download-button {
-    background-color: #38a169; /* Verde para el botón de descarga */
+    background-color: #38a169;
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 8px;
-    font-size: 0.8em;
+    font-size: .8em;
     cursor: pointer;
     font-weight: bold;
-    transition: background-color 0.3s;
+    transition: background-color .3s;
 }
 
 .download-button:hover {
