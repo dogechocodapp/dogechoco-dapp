@@ -1,10 +1,11 @@
-// Contenido COMPLETO y ACTUALIZADO para backend/server.js
+// Contenido FINAL y MEJORADO para backend/server.js
 
 const express = require('express');
 const { ethers } = require('ethers');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path'); // Importamos el módulo 'path'
+// Usaremos la versión de promesas de 'fs' para operaciones asíncronas
+const fs = require('fs').promises; 
+const path = require('path');
 
 const app = express();
 const PORT = 3001;
@@ -13,41 +14,74 @@ const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
 app.use(cors());
 app.use(express.json());
 
-const DB_FILE = path.join(__dirname, 'messages.json'); // Ruta absoluta al archivo
+const DB_FILE = path.join(__dirname, 'messages.json');
 
-const readMessages = () => {
-    if (!fs.existsSync(DB_FILE)) return [];
-    const data = fs.readFileSync(DB_FILE);
-    return JSON.parse(data);
+// --- Funciones de lectura/escritura ASÍNCRONAS ---
+
+const readMessages = async () => {
+    try {
+        // 'await' espera a que el archivo se lea antes de continuar
+        const data = await fs.readFile(DB_FILE, 'utf-8');
+        return JSON.parse(data);
+    } catch (error) {
+        // Si el archivo no existe (error 'ENOENT'), es normal. Devolvemos una lista vacía.
+        if (error.code === 'ENOENT') {
+            return [];
+        }
+        // Si es otro tipo de error, lo mostramos.
+        console.error("Error leyendo el archivo de mensajes:", error);
+        throw error;
+    }
 };
 
-const writeMessages = (messages) => {
-    fs.writeFileSync(DB_FILE, JSON.stringify(messages, null, 2));
+const writeMessages = async (messages) => {
+    console.log("-> Iniciando escritura de archivo...");
+    try {
+        // 'await' espera a que el archivo se escriba antes de continuar
+        await fs.writeFile(DB_FILE, JSON.stringify(messages, null, 2));
+        console.log("-> Escritura de archivo completada.");
+    } catch (error) {
+        console.error("!! ERROR DURANTE LA ESCRITURA DEL ARCHIVO:", error);
+        throw error;
+    }
 };
 
-// --- RUTA #1: Recibir mensajes de usuarios (sin cambios) ---
-app.post('/api/message', (req, res) => {
-    // ... (Esta parte del código se queda exactamente igual)
+
+// --- RUTA #1: Recibir mensajes de usuarios (ahora es 'async') ---
+app.post('/api/message', async (req, res) => { // La declaramos async
+    console.log('Recibida una nueva petición de mensaje...');
     const { message, signature, address } = req.body;
-    if (!message || !signature || !address) return res.status(400).json({ error: 'Faltan datos.' });
+
+    if (!message || !signature || !address) {
+        return res.status(400).json({ error: 'Faltan datos.' });
+    }
+
     try {
         const recoveredAddress = ethers.verifyMessage(message, signature);
+
         if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-            const messages = readMessages();
+            console.log('✅ Firma verificada con éxito.');
+            
+            const messages = await readMessages();
             messages.push({ address, message, signature, timestamp: new Date().toISOString() });
-            writeMessages(messages);
-            res.status(201).json({ success: true, message: 'Mensaje recibido.' });
+            
+            // Esperamos a que la escritura termine
+            await writeMessages(messages);
+            
+            res.status(201).json({ success: true, message: 'Mensaje recibido y verificado.' });
         } else {
             res.status(401).json({ error: 'Firma inválida.' });
         }
     } catch (error) {
+        console.error("!! ERROR en la ruta /api/message:", error);
         res.status(500).json({ error: 'Error interno del servidor.' });
     }
 });
 
-// --- RUTA #2: Ver los mensajes como admin (sin cambios) ---
-app.post('/admin/get-messages', (req, res) => {
-    // ... (Esta parte del código se queda exactamente igual)
+
+// Las rutas de admin también se vuelven 'async' para usar la nueva función de lectura
+app.post('/admin/get-messages', async (req, res) => {
+    // ... (lógica de verificación de firma del admin sin cambios) ...
     const { address, signature } = req.body;
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
     if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
@@ -56,7 +90,7 @@ app.post('/admin/get-messages', (req, res) => {
         const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             console.log(`✅ Acceso de administrador concedido a ${address}`);
-            const messages = readMessages();
+            const messages = await readMessages(); // Usamos la nueva función async
             res.json(messages);
         } else {
             res.status(403).json({ error: 'Firma de administrador inválida.' });
@@ -66,29 +100,18 @@ app.post('/admin/get-messages', (req, res) => {
     }
 });
 
-
-// --- RUTA #3: La "Puerta Secreta" para DESCARGAR los mensajes ---
 app.post('/admin/download-messages', (req, res) => {
+    // ... (Esta ruta no necesita cambios, ya que usa res.download que maneja los archivos por su cuenta)
     const { address, signature } = req.body;
-
-    // 1. Usamos la misma lógica de seguridad que para ver los mensajes
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
     if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
-    
     const messageToVerify = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
     try {
         const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
-
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
-            // ¡Éxito! La firma es del administrador.
             console.log(`✅ Solicitud de descarga autorizada para ${address}`);
-            
-            // 2. En lugar de enviar un JSON, le decimos al navegador que descargue el archivo.
-            // Express.js hace esto muy fácil con res.download()
             res.download(DB_FILE, 'DOGECHOCO-messages.json', (err) => {
-                if (err) {
-                    console.error("Error al enviar el archivo:", err);
-                }
+                if (err) console.error("Error al enviar el archivo:", err);
             });
         } else {
             res.status(403).json({ error: 'Firma de administrador inválida.' });
