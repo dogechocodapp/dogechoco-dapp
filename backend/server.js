@@ -1,60 +1,32 @@
-// Contenido FINAL y MEJORADO para backend/server.js
+// --- CÓDIGO FINAL Y DEFINITIVO para backend/server.js (con Base de Datos Supabase) ---
 
 const express = require('express');
 const { ethers } = require('ethers');
 const cors = require('cors');
-// Usaremos la versión de promesas de 'fs' para operaciones asíncronas
-const fs = require('fs').promises; 
-const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = 3001;
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
 
+// El Pool se conecta a la base de datos usando la variable de entorno DATABASE_URL que configuramos en Render
+// Esta URL ahora apunta a nuestra base de datos en Supabase
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
 app.use(cors());
 app.use(express.json());
 
-const DB_FILE = path.join(__dirname, 'messages.json');
-
-// --- Funciones de lectura/escritura ASÍNCRONAS ---
-
-const readMessages = async () => {
-    try {
-        // 'await' espera a que el archivo se lea antes de continuar
-        const data = await fs.readFile(DB_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        // Si el archivo no existe (error 'ENOENT'), es normal. Devolvemos una lista vacía.
-        if (error.code === 'ENOENT') {
-            return [];
-        }
-        // Si es otro tipo de error, lo mostramos.
-        console.error("Error leyendo el archivo de mensajes:", error);
-        throw error;
-    }
-};
-
-const writeMessages = async (messages) => {
-    console.log("-> Iniciando escritura de archivo...");
-    try {
-        // 'await' espera a que el archivo se escriba antes de continuar
-        await fs.writeFile(DB_FILE, JSON.stringify(messages, null, 2));
-        console.log("-> Escritura de archivo completada.");
-    } catch (error) {
-        console.error("!! ERROR DURANTE LA ESCRITURA DEL ARCHIVO:", error);
-        throw error;
-    }
-};
-
-
-// --- RUTA #1: Recibir mensajes de usuarios (ahora es 'async') ---
-app.post('/api/message', async (req, res) => { // La declaramos async
+// --- RUTA #1: Recibir y GUARDAR mensajes en la BASE DE DATOS ---
+app.post('/api/message', async (req, res) => {
     console.log('Recibida una nueva petición de mensaje...');
     const { message, signature, address } = req.body;
 
-    if (!message || !signature || !address) {
-        return res.status(400).json({ error: 'Faltan datos.' });
-    }
+    if (!message || !signature || !address) return res.status(400).json({ error: 'Faltan datos.' });
 
     try {
         const recoveredAddress = ethers.verifyMessage(message, signature);
@@ -62,13 +34,13 @@ app.post('/api/message', async (req, res) => { // La declaramos async
         if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
             console.log('✅ Firma verificada con éxito.');
             
-            const messages = await readMessages();
-            messages.push({ address, message, signature, timestamp: new Date().toISOString() });
+            const insertQuery = 'INSERT INTO messages(wallet_address, message_text, signature) VALUES($1, $2, $3)';
+            const values = [address, message, signature];
             
-            // Esperamos a que la escritura termine
-            await writeMessages(messages);
+            await pool.query(insertQuery, values);
+            console.log('-> Mensaje guardado en la base de datos de Supabase.');
             
-            res.status(201).json({ success: true, message: 'Mensaje recibido y verificado.' });
+            res.status(201).json({ success: true, message: 'Mensaje recibido y guardado permanentemente.' });
         } else {
             res.status(401).json({ error: 'Firma inválida.' });
         }
@@ -78,10 +50,8 @@ app.post('/api/message', async (req, res) => { // La declaramos async
     }
 });
 
-
-// Las rutas de admin también se vuelven 'async' para usar la nueva función de lectura
+// --- RUTA #2: LEER los mensajes desde la BASE DE DATOS ---
 app.post('/admin/get-messages', async (req, res) => {
-    // ... (lógica de verificación de firma del admin sin cambios) ...
     const { address, signature } = req.body;
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
     if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
@@ -90,18 +60,23 @@ app.post('/admin/get-messages', async (req, res) => {
         const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             console.log(`✅ Acceso de administrador concedido a ${address}`);
-            const messages = await readMessages(); // Usamos la nueva función async
-            res.json(messages);
+            
+            // Hemos cambiado el nombre de las columnas para que coincida con lo que espera el frontend
+            const selectQuery = 'SELECT wallet_address AS address, message_text AS message, created_at AS timestamp FROM messages ORDER BY created_at DESC';
+            const { rows } = await pool.query(selectQuery);
+            
+            res.json(rows);
         } else {
             res.status(403).json({ error: 'Firma de administrador inválida.' });
         }
     } catch (error) {
+        console.error("!! Error en la ruta /admin/get-messages:", error);
         res.status(500).json({ error: 'Error interno al verificar firma de admin.' });
     }
 });
 
-app.post('/admin/download-messages', (req, res) => {
-    // ... (Esta ruta no necesita cambios, ya que usa res.download que maneja los archivos por su cuenta)
+// La ruta de descarga también leerá de la base de datos
+app.post('/admin/download-messages', async (req, res) => {
     const { address, signature } = req.body;
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
     if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
@@ -109,14 +84,18 @@ app.post('/admin/download-messages', (req, res) => {
     try {
         const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
-            console.log(`✅ Solicitud de descarga autorizada para ${address}`);
-            res.download(DB_FILE, 'DOGECHOCO-messages.json', (err) => {
-                if (err) console.error("Error al enviar el archivo:", err);
-            });
+            const selectQuery = 'SELECT * FROM messages ORDER BY created_at DESC';
+            const { rows } = await pool.query(selectQuery);
+            
+            const jsonData = JSON.stringify(rows, null, 2);
+            res.header('Content-Disposition', 'attachment; filename="DOGECHOCO-messages.json"');
+            res.type('application/json');
+            res.send(jsonData);
         } else {
             res.status(403).json({ error: 'Firma de administrador inválida.' });
         }
     } catch (error) {
+        console.error("!! Error en la ruta /admin/download-messages:", error);
         res.status(500).json({ error: 'Error interno al verificar firma de admin.' });
     }
 });
@@ -124,5 +103,11 @@ app.post('/admin/download-messages', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor DOGECHOCO escuchando en http://localhost:${PORT}`);
-    console.log(`🔑 Wallet de Administrador configurada: ${ADMIN_WALLET_ADDRESS}`);
+    pool.query('SELECT NOW()', (err, res) => {
+        if (err) {
+            console.error("!! Error de conexión con la base de datos de Supabase:", err);
+        } else {
+            console.log("✅ Conexión con la base de datos de Supabase establecida con éxito a las:", res.rows[0].now);
+        }
+    });
 });
