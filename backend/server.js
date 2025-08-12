@@ -1,6 +1,4 @@
-// --- CÓDIGO DE VERIFICACIÓN FINAL ---
-console.log("--- INICIANDO VERSIÓN MÁS RECIENTE DEL SERVIDOR (CON GSSAPI DESACTIVADO EN CÓDIGO) ---");
-console.log("--- SI VES ESTE MENSAJE, EL ÚLTIMO CÓDIGO SE HA DESPLEGADO CORRECTAMENTE. ---");
+// --- CÓDIGO FINAL v3 para backend/server.js (con configuración explícita de CORS) ---
 
 const express = require('express');
 const { ethers } = require('ethers');
@@ -19,8 +17,18 @@ const pool = new Pool({
     gssencmode: 'disable',
 });
 
-app.use(cors());
+// --- ESTE ES EL CAMBIO IMPORTANTE ---
+// Configuramos CORS para que solo acepte peticiones desde tu dominio de frontend
+const corsOptions = {
+    origin: 'https://dogechoco.xyz',
+    optionsSuccessStatus: 200 // Para navegadores antiguos
+};
+app.use(cors(corsOptions));
+// ------------------------------------
+
 app.use(express.json());
+
+// El resto del código es exactamente el mismo...
 
 app.post('/api/message', async (req, res) => {
     console.log('Recibida una nueva petición de mensaje...');
