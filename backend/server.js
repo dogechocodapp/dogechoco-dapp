@@ -1,4 +1,6 @@
-// --- CÓDIGO FINAL Y DEFINITIVO v2 para backend/server.js (con GSSAPI desactivado en el código) ---
+// --- CÓDIGO DE VERIFICACIÓN FINAL ---
+console.log("--- INICIANDO VERSIÓN MÁS RECIENTE DEL SERVIDOR (CON GSSAPI DESACTIVADO EN CÓDIGO) ---");
+console.log("--- SI VES ESTE MENSAJE, EL ÚLTIMO CÓDIGO SE HA DESPLEGADO CORRECTAMENTE. ---");
 
 const express = require('express');
 const { ethers } = require('ethers');
@@ -9,40 +11,29 @@ const app = express();
 const PORT = 3001;
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
 
-// --- CONFIGURACIÓN DE LA BASE DE DATOS (CON LA LÍNEA AÑADIDA) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     },
-    // --- ESTA ES LA LÍNEA MÁGICA Y DEFINITIVA ---
-    // Le dice explícitamente a la conexión que NO use GSSAPI.
-    // Esto es más directo que modificar la URL.
     gssencmode: 'disable',
 });
 
 app.use(cors());
 app.use(express.json());
 
-// --- RUTA #1: Recibir y GUARDAR mensajes en la BASE DE DATOS ---
 app.post('/api/message', async (req, res) => {
     console.log('Recibida una nueva petición de mensaje...');
     const { message, signature, address } = req.body;
-
     if (!message || !signature || !address) return res.status(400).json({ error: 'Faltan datos.' });
-
     try {
         const recoveredAddress = ethers.verifyMessage(message, signature);
-
         if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
             console.log('✅ Firma verificada con éxito.');
-            
             const insertQuery = 'INSERT INTO messages(wallet_address, message_text, signature) VALUES($1, $2, $3)';
             const values = [address, message, signature];
-            
             await pool.query(insertQuery, values);
             console.log('-> Mensaje guardado en la base de datos de Supabase.');
-            
             res.status(201).json({ success: true, message: 'Mensaje recibido y guardado permanentemente.' });
         } else {
             res.status(401).json({ error: 'Firma inválida.' });
@@ -53,7 +44,6 @@ app.post('/api/message', async (req, res) => {
     }
 });
 
-// --- RUTA #2: LEER los mensajes desde la BASE DE DATOS ---
 app.post('/admin/get-messages', async (req, res) => {
     const { address, signature } = req.body;
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
@@ -63,10 +53,8 @@ app.post('/admin/get-messages', async (req, res) => {
         const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             console.log(`✅ Acceso de administrador concedido a ${address}`);
-            
             const selectQuery = 'SELECT wallet_address AS address, message_text AS message, created_at AS timestamp FROM messages ORDER BY created_at DESC';
             const { rows } = await pool.query(selectQuery);
-            
             res.json(rows);
         } else {
             res.status(403).json({ error: 'Firma de administrador inválida.' });
@@ -77,7 +65,6 @@ app.post('/admin/get-messages', async (req, res) => {
     }
 });
 
-// La ruta de descarga también leerá de la base de datos
 app.post('/admin/download-messages', async (req, res) => {
     const { address, signature } = req.body;
     if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
@@ -88,7 +75,6 @@ app.post('/admin/download-messages', async (req, res) => {
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             const selectQuery = 'SELECT * FROM messages ORDER BY created_at DESC';
             const { rows } = await pool.query(selectQuery);
-            
             const jsonData = JSON.stringify(rows, null, 2);
             res.header('Content-Disposition', 'attachment; filename="DOGECHOCO-messages.json"');
             res.type('application/json');
@@ -101,7 +87,6 @@ app.post('/admin/download-messages', async (req, res) => {
         res.status(500).json({ error: 'Error interno al verificar firma de admin.' });
     }
 });
-
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor DOGECHOCO escuchando en http://localhost:${PORT}`);
