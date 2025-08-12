@@ -6,7 +6,7 @@ import './App.css';
 import DOGECHOCOLogo from './assets/DOGECHOCO-logo.png';
 
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
-const BACKEND_URL = 'https://dogechoco-backend.onrender.com';
+const BACKEND_URL = 'const BACKEND_URL = 'https://dogechoco-dapp.vercel.app';
 
 function App() {
     const [account, setAccount] = useState(null);
