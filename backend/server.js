@@ -1,4 +1,4 @@
-// --- CÓDIGO FINAL Y DEFINITIVO para backend/server.js (con Base de Datos Supabase) ---
+// --- CÓDIGO FINAL Y DEFINITIVO v2 para backend/server.js (con GSSAPI desactivado en el código) ---
 
 const express = require('express');
 const { ethers } = require('ethers');
@@ -9,13 +9,16 @@ const app = express();
 const PORT = 3001;
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
 
-// El Pool se conecta a la base de datos usando la variable de entorno DATABASE_URL que configuramos en Render
-// Esta URL ahora apunta a nuestra base de datos en Supabase
+// --- CONFIGURACIÓN DE LA BASE DE DATOS (CON LA LÍNEA AÑADIDA) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    // --- ESTA ES LA LÍNEA MÁGICA Y DEFINITIVA ---
+    // Le dice explícitamente a la conexión que NO use GSSAPI.
+    // Esto es más directo que modificar la URL.
+    gssencmode: 'disable',
 });
 
 app.use(cors());
@@ -61,7 +64,6 @@ app.post('/admin/get-messages', async (req, res) => {
         if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             console.log(`✅ Acceso de administrador concedido a ${address}`);
             
-            // Hemos cambiado el nombre de las columnas para que coincida con lo que espera el frontend
             const selectQuery = 'SELECT wallet_address AS address, message_text AS message, created_at AS timestamp FROM messages ORDER BY created_at DESC';
             const { rows } = await pool.query(selectQuery);
             
