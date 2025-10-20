@@ -18,7 +18,7 @@ function App() {
     const [view, setView] = useState('main');
 
     useEffect(() => {
-        // Esta es la versión más segura para evitar errores al cargar
+        // Esta es la versión más segura para evitar errores al cargar 
         if (typeof account === 'string' && account.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
             setIsAdmin(true);
         } else {
