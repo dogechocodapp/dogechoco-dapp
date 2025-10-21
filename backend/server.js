@@ -1,4 +1,4 @@
-// --- CÓDIGO FINAL Y DEFINITIVO v5 para backend/server.js (con manejo explícito de preflight) ---
+// --- CÓDIGO FINAL Y DEFINITIVO para backend/server.js (con Base de Datos Supabase) ---
 
 const express = require('express');
 const { ethers } = require('ethers');
@@ -8,48 +8,32 @@ const { Pool } = require('pg');
 const app = express();
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
 
+// Se conecta a la base de datos usando la variable de entorno que configuramos en Vercel
 const pool = new Pool({
-    connectionString: process.env.POSTGRES_URL + "?sslmode=require",
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
-// --- ESTE ES EL CAMBIO MÁS IMPORTANTE ---
+// --- MANEJO DE CORS ---
 const whitelist = ['https://dogechoco.xyz', 'https://www.dogechoco.xyz'];
 const corsOptions = {
     origin: function (origin, callback) {
         if (whitelist.indexOf(origin) !== -1 || !origin) {
-            callback(null, true);
+            callback(null, true); // Permite la petición
         } else {
-            callback(new Error('No permitido por CORS'));
+            callback(new Error('No permitido por CORS')); // Bloquea la petición
         }
     }
 };
-// Usamos la configuración avanzada de CORS
 app.use(cors(corsOptions));
-// AÑADIMOS UN MANEJADOR EXPLÍCITO PARA LAS PETICIONES PREFLIGHT (OPTIONS)
-app.options('*', cors(corsOptions));
-// ------------------------------------
+app.options('*', cors(corsOptions)); // Maneja peticiones "preflight"
+// -----------------------
 
 app.use(express.json());
 
-// El resto del código es exactamente el mismo...
-
-app.post('/api/message', async (req, res) => {
-    // ...código sin cambios
-});
-
-app.post('/admin/get-messages', async (req, res) => {
-    // ...código sin cambios
-});
-
-app.post('/admin/download-messages', async (req, res) => {
-    // ...código sin cambios
-});
-
-// Vercel no usa app.listen, exportamos la app
-initializeDatabase();
-module.exports = app;
-
-async function initializeDatabase() {
+const initializeDatabase = async () => {
     const createTableQuery = `
         CREATE TABLE IF NOT EXISTS messages (
             id SERIAL PRIMARY KEY,
@@ -61,8 +45,77 @@ async function initializeDatabase() {
     `;
     try {
         await pool.query(createTableQuery);
-        console.log("✅ Tabla 'messages' en Vercel Postgres está lista.");
+        console.log("✅ Tabla 'messages' en la base de datos está lista.");
     } catch (err) {
-        console.error("!! Error al crear la tabla en Vercel Postgres:", err);
+        console.error("!! Error al crear la tabla:", err);
     }
-}
+};
+
+app.post('/api/message', async (req, res) => {
+    console.log('Recibida una nueva petición de mensaje...');
+    const { message, signature, address } = req.body;
+    if (!message || !signature || !address) return res.status(400).json({ error: 'Faltan datos.' });
+    try {
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+            console.log('✅ Firma verificada con éxito.');
+            const insertQuery = 'INSERT INTO messages(wallet_address, message_text, signature) VALUES($1, $2, $3)';
+            const values = [address, message, signature];
+            await pool.query(insertQuery, values);
+            console.log('-> Mensaje guardado en la base de datos de Supabase.');
+            res.status(201).json({ success: true, message: 'Mensaje recibido y guardado permanentemente.' });
+        } else {
+            res.status(401).json({ error: 'Firma inválida.' });
+        }
+    } catch (error) {
+        console.error("!! ERROR en la ruta /api/message:", error);
+        res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+});
+
+app.post('/admin/get-messages', async (req, res) => {
+    const { address, signature } = req.body;
+    if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
+    if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
+    const messageToVerify = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
+    try {
+        const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
+        if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
+            console.log(`✅ Acceso de administrador concedido a ${address}`);
+            const selectQuery = 'SELECT wallet_address AS address, message_text AS message, created_at AS timestamp FROM messages ORDER BY created_at DESC';
+            const { rows } = await pool.query(selectQuery);
+            res.json(rows);
+        } else {
+            res.status(403).json({ error: 'Firma de administrador inválida.' });
+        }
+    } catch (error) {
+        console.error("!! Error en la ruta /admin/get-messages:", error);
+        res.status(500).json({ error: 'Error interno al verificar firma de admin.' });
+    }
+});
+
+app.post('/admin/download-messages', async (req, res) => {
+    const { address, signature } = req.body;
+    if (!address || !signature) return res.status(400).json({ error: 'Falta la dirección o la firma.' });
+    if (address.toLowerCase() !== ADMIN_WALLET_ADDRESS.toLowerCase()) return res.status(403).json({ error: 'Acceso denegado.' });
+    const messageToVerify = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
+    try {
+        const recoveredAddress = ethers.verifyMessage(messageToVerify, signature);
+        if (recoveredAddress.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase()) {
+            const selectQuery = 'SELECT * FROM messages ORDER BY created_at DESC';
+            const { rows } = await pool.query(selectQuery);
+            const jsonData = JSON.stringify(rows, null, 2);
+            res.header('Content-Disposition', 'attachment; filename="DOGECHOCO-messages.json"');
+            res.type('application/json');
+            res.send(jsonData);
+        } else {
+            res.status(403).json({ error: 'Firma de administrador inválida.' });
+        }
+    } catch (error) {
+        console.error("!! Error en la ruta /admin/download-messages:", error);
+        res.status(500).json({ error: 'Error interno al verificar firma de admin.' });
+    }
+});
+
+initializeDatabase();
+module.exports = app;
