@@ -6,7 +6,8 @@ import './App.css';
 import DOGECHOCOLogo from './assets/DOGECHOCO-logo.png';
 
 const ADMIN_WALLET_ADDRESS = '0xd6d3FeAa769e03EfEBeF94fB10D365D97aFAC011';
-const BACKEND_URL = 'https://dogechoco-dapp.vercel.app';
+// Esta es la URL del backend en Vercel
+const BACKEND_URL = 'https://dogechoco-dapp.vercel.app'; 
 
 function App() {
     const [account, setAccount] = useState(null);
@@ -105,7 +106,7 @@ function App() {
                 throw new Error(errorResult.error || 'Acceso denegado.');
             }
             const messages = await response.json();
-            setAdminMessages(messages); // Ya no es necesario .reverse() porque el backend lo ordena
+            setAdminMessages(messages); // El backend ya los ordena
             setView('admin');
             setNotification('');
         } catch (error) {
@@ -116,9 +117,44 @@ function App() {
     }
 
     const downloadMessages = async () => {
-        // ... (código sin cambios)
-    };
+        setLoading(true);
+        setNotification('Preparando la descarga...');
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const adminMessage = 'Soy el administrador de DOGECHOCO y solicito ver los mensajes.';
+            const signature = await signer.signMessage(adminMessage);
 
+            const response = await fetch(`${BACKEND_URL}/admin/download-messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: account, signature: signature })
+            });
+
+            if (!response.ok) {
+                throw new Error('No se pudo autorizar la descarga.');
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'DOGECHOCO-messages.json';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            setNotification('');
+
+        } catch (error) {
+            setNotification(`❌ Error en la descarga: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }
+    
     if (isAdmin && view === 'admin') {
         return (
             <div className="App">
@@ -153,7 +189,7 @@ function App() {
                 ) : (
                     <div className="message-container">
                         <p className="wallet-address">Conectado como: <strong>{`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}</strong></p>
-
+                        
                         {isAdmin && (
                              <button onClick={getAdminMessages} className="admin-button" disabled={loading}>
                                 {loading ? 'Cargando...' : 'Panel de Administrador'}
@@ -169,3 +205,6 @@ function App() {
         </div>
     );
 }
+
+// ESTA ES LA LÍNEA QUE FALTABA
+export default App;
