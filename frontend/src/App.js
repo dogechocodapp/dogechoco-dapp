@@ -134,7 +134,7 @@ function App() {
             if (!response.ok) {
                 throw new Error('No se pudo autorizar la descarga.');
             }
-            
+
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -154,7 +154,7 @@ function App() {
             setLoading(false);
         }
     }
-    
+
     if (isAdmin && view === 'admin') {
         return (
             <div className="App">
@@ -189,7 +189,7 @@ function App() {
                 ) : (
                     <div className="message-container">
                         <p className="wallet-address">Conectado como: <strong>{`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}</strong></p>
-                        
+
                         {isAdmin && (
                              <button onClick={getAdminMessages} className="admin-button" disabled={loading}>
                                 {loading ? 'Cargando...' : 'Panel de Administrador'}
@@ -206,5 +206,4 @@ function App() {
     );
 }
 
-// ESTA ES LA LÍNEA QUE FALTABA
 export default App;
