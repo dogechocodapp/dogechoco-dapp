@@ -1,8 +1,8 @@
-// --- CÓDIGO FINAL Y LIMPIO para backend/server.js ---
-// (Hemos eliminado el paquete 'cors' para evitar conflictos)
+// --- CÓDIGO FINAL Y DEFINITIVO para backend/server.js ---
 
 const express = require('express');
 const { ethers } = require('ethers');
+const cors = require('cors'); // <-- ¡AQUÍ ESTÁ LA LÍNEA IMPORTANTE!
 const { Pool } = require('pg');
 
 const app = express();
@@ -15,6 +15,21 @@ const pool = new Pool({
         rejectUnauthorized: false
     }
 });
+
+// --- MANEJO DE CORS (LA SOLUCIÓN CORRECTA) ---
+const whitelist = ['https://dogechoco.xyz', 'https://www.dogechoco.xyz'];
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (whitelist.indexOf(origin) !== -1 || !origin) {
+            callback(null, true); // Permite la petición
+        } else {
+            callback(new Error('No permitido por CORS')); // Bloquea la petición
+        }
+    }
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Maneja peticiones "preflight"
+// ------------------------------------
 
 app.use(express.json());
 
